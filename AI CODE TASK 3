@@ -1,0 +1,88 @@
+import streamlit as st
+import pandas as pd
+import pickle
+import requests
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import os
+
+# Function to fetch poster from TMDB
+def fetch_poster(movie_id):
+    try:
+        url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key=46e9fc286c8423153158c40cacf0017f&language=en-US"
+        data = requests.get(url).json()
+        poster_path = data.get('poster_path')
+        if poster_path:
+            return f"https://image.tmdb.org/t/p/w500/{poster_path}"
+        else:
+            return "https://via.placeholder.com/500x750.png?text=No+Poster+Available"
+    except:
+        return "https://via.placeholder.com/500x750.png?text=Error+Fetching+Poster"
+
+# Function to recommend movies
+def recommend(movie, movies, similarity):
+    index = movies[movies['original_title'] == movie].index[0]
+    distances = sorted(list(enumerate(similarity[index])), reverse=True, key=lambda x: x[1])
+    recommended_movie_names = []
+    recommended_movie_posters = []
+    for i in distances[1:6]:
+        movie_id = movies.iloc[i[0]].movie_id
+        recommended_movie_names.append(movies.iloc[i[0]].original_title)
+        recommended_movie_posters.append(fetch_poster(movie_id))
+    return recommended_movie_names, recommended_movie_posters
+
+# Function to preprocess and generate pickle files if missing
+def generate_pickles():
+    if not os.path.exists("movies.pkl") or not os.path.exists("similarity.pkl"):
+        # Load movie dataset
+        st.write("Generating data files...")
+        try:
+            movies = pd.read_csv("movies.csv")  # Replace with your dataset file
+        except FileNotFoundError:
+            st.error("Error: 'movies.csv' not found. Please ensure the file is in the current directory.")
+            return None, None
+
+        # Preprocess movies
+        movies = movies[['movie_id', 'original_title', 'overview']].dropna()
+        movies['overview'] = movies['overview'].fillna('')
+
+        # Create similarity matrix
+        count_vectorizer = CountVectorizer(stop_words='english')
+        count_matrix = count_vectorizer.fit_transform(movies['overview'])
+        similarity = cosine_similarity(count_matrix)
+
+        # Save movies and similarity matrix as pickle files
+        with open("movies.pkl", "wb") as f:
+            pickle.dump(movies.to_dict(), f)
+        with open("similarity.pkl", "wb") as f:
+            pickle.dump(similarity, f)
+
+        st.success("Pickle files generated successfully.")
+    else:
+        st.write("Pickle files already exist.")
+    
+    # Load pickled data
+    movies = pd.DataFrame(pickle.load(open("movies.pkl", "rb")))
+    similarity = pickle.load(open("similarity.pkl", "rb"))
+    return movies, similarity
+
+# Main app
+st.title("Movie Recommendation System")
+
+# Generate or load data
+movies, similarity = generate_pickles()
+if movies is not None and similarity is not None:
+    # Dropdown menu for movie selection
+    selected_movie = st.selectbox("Select a movie:", movies['original_title'].values)
+
+    # Button to show recommendations
+    if st.button("Show Recommendations"):
+        recommended_movie_names, recommended_movie_posters = recommend(selected_movie, movies, similarity)
+        # Display recommendations
+        col1, col2, col3, col4, col5 = st.columns(5)
+        for i, col in enumerate([col1, col2, col3, col4, col5]):
+            with col:
+                st.text(recommended_movie_names[i])
+                st.image(recommended_movie_posters[i])
+else:
+    st.error("Could not load data. Please ensure all required files are in place.")
