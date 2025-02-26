@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Management Tool</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .container { max-width: 600px; margin: auto; padding: 20px; }
+        .project, .task { margin: 10px 0; padding: 10px; border: 1px solid #e0bcbc; }
+        button { margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Project Management Tool</h1>
+        <input type="text" id="projectName" placeholder="New Project Name">
+        <button onclick="addProject()">Add Project</button>
+        <div id="projects"></div>
+    </div>
+    
+    <script>
+        let projects = [];
+        function addProject() {
+            let name = document.getElementById('projectName').value;
+            if (!name) return;
+            let project = { id: Date.now(), name, tasks: [] };
+            projects.push(project);
+            document.getElementById('projectName').value = '';
+            renderProjects();
+        }
+        
+        function addTask(projectId) {
+            let taskName = prompt("Enter Task Name:");
+            if (!taskName) return;
+            let project = projects.find(p => p.id === projectId);
+            project.tasks.push({ id: Date.now(), name: taskName, completed: false });
+            renderProjects();
+        }
+        
+        function toggleTask(projectId, taskId) {
+            let project = projects.find(p => p.id === projectId);
+            let task = project.tasks.find(t => t.id === taskId);
+            task.completed = !task.completed;
+            renderProjects();
+        }
+        
+        function renderProjects() {
+            let projectContainer = document.getElementById('projects');
+            projectContainer.innerHTML = '';
+            projects.forEach(project => {
+                let div = document.createElement('div');
+                div.className = 'project';
+                div.innerHTML = `<strong>${project.name}</strong> 
+                                <button onclick="addTask(${project.id})">Add Task</button>
+                                <div id="tasks-${project.id}"></div>`;
+                projectContainer.appendChild(div);
+                
+                let taskContainer = div.querySelector(`#tasks-${project.id}`);
+                project.tasks.forEach(task => {
+                    let taskDiv = document.createElement('div');
+                    taskDiv.className = 'task';
+                    taskDiv.innerHTML = `<input type="checkbox" ${task.completed ? 'checked' : ''} onclick="toggleTask(${project.id}, ${task.id})">
+                                        ${task.name}`;
+                    taskContainer.appendChild(taskDiv);
+                });
+            });
+        }
+    </script>
+</body>
+</html>
